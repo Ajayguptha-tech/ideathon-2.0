@@ -1,0 +1,43 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build artifacts
+dist
+build
+.vite
+
+# Environment variables & secrets (CRITICAL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+service-account*.json
+credentials.json
+
+# Private registration data & local ledgers
+server/data/*.json
+server/data/*.csv
+!server/data/.gitkeep
+*.csv
+*.tsv
+*.xlsx
+*.xls
+registrations*.json
+sequence*.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Release archives
+*.zip
+*.tar.gz
+
+# System files
+.DS_Store
+Thumbs.db

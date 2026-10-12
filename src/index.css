@@ -1,0 +1,30 @@
+@tailwind base;@tailwind components;@tailwind utilities;
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{@apply bg-navy text-slate-200 antialiased;margin:0;overflow-x:hidden;font-family:'Inter Variable',system-ui,sans-serif}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+ background:radial-gradient(60% 50% at 85% 10%,rgba(124,58,237,.22),transparent),radial-gradient(50% 50% at 5% 60%,rgba(8,145,178,.18),transparent),radial-gradient(40% 40% at 70% 95%,rgba(37,99,235,.18),transparent);}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+ background-image:linear-gradient(rgba(34,211,238,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.06) 1px,transparent 1px);background-size:56px 56px;
+ -webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000,transparent 75%);mask-image:radial-gradient(ellipse at 50% 30%,#000,transparent 75%)}
+h1,h2,h3{font-family:'Orbitron',system-ui,sans-serif}
+:focus-visible{outline:2px solid #22d3ee;outline-offset:3px}
+@property --ang{syntax:'<angle>';initial-value:0deg;inherits:false}
+@keyframes spin{to{--ang:360deg}}
+@keyframes shine{to{background-position:200% center}}
+.glass{position:relative;border-radius:1rem;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.015));backdrop-filter:blur(14px);transition:transform .3s,box-shadow .3s;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 40px -12px rgba(0,0,0,.6)}
+.glass::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+ background:conic-gradient(from var(--ang),rgba(34,211,238,.7),rgba(139,92,246,.7),rgba(34,211,238,.05) 40%,rgba(34,211,238,.7));animation:spin 8s linear infinite;
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.55;transition:opacity .3s}
+.glass:hover{transform:translateY(-3px);box-shadow:0 0 40px -6px rgba(124,58,237,.5),inset 0 1px 0 rgba(255,255,255,.15)}
+.glass:hover::before{opacity:1}
+.btn{@apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3 font-semibold min-h-[44px] transition tracking-wide}
+.btn-p{@apply btn text-white;background:linear-gradient(90deg,#2563eb,#7c3aed,#06b6d4,#7c3aed);background-size:300% 100%;animation:shine 6s linear infinite;box-shadow:0 0 28px #7c3aed99,inset 0 1px 0 #fff4}
+.btn-p:hover{box-shadow:0 0 48px #22d3eecc,inset 0 1px 0 #fff6;transform:translateY(-2px)}
+.btn-s{@apply btn text-cyan-200;border:1px solid rgba(34,211,238,.5);background:rgba(34,211,238,.05)}
+.btn-s:hover{background:rgba(34,211,238,.15);box-shadow:0 0 24px #22d3ee55}
+.h2{@apply text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white;text-shadow:0 0 32px rgba(139,92,246,.55)}
+.eyebrow{@apply text-xs tracking-[0.35em] text-cyan-300 uppercase font-semibold flex items-center gap-3}
+.eyebrow::before{content:'';width:32px;height:1px;background:linear-gradient(90deg,transparent,#22d3ee)}
+.grad{background:linear-gradient(90deg,#67e8f9,#a78bfa,#67e8f9);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 5s linear infinite}
+@media (prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
