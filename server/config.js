@@ -8,6 +8,15 @@ const __dirname = path.dirname(__filename);
 // Load root .env
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+function sanitizeEnv(val) {
+  if (!val || typeof val !== 'string') return '';
+  let str = val.trim();
+  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+  return str;
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -29,25 +38,24 @@ export const config = {
 
   // Administrator Access (Strict single-account authentication)
   admin: {
-    email: (process.env.ADMIN_EMAIL || 'ajayguptha710@gmail.com').trim().toLowerCase(),
-    passwordHash: process.env.ADMIN_PASSWORD_HASH || '$2b$10$QviZH7Is0WSG4ymkS4tcteJFnPT0ozcuwyDU.1g4z5fYyaaT98Riy', // default: Ideathon@Admin2026!
-    password: process.env.ADMIN_PASSWORD || '',
+    email: (sanitizeEnv(process.env.ADMIN_EMAIL) || 'ajayguptha710@gmail.com').toLowerCase(),
+    passwordHash: sanitizeEnv(process.env.ADMIN_PASSWORD_HASH),
     jwtSecret:
-      process.env.ADMIN_SECRET ||
-      process.env.ORGANIZER_SECRET ||
-      process.env.JWT_SECRET ||
+      sanitizeEnv(process.env.ADMIN_SECRET) ||
+      sanitizeEnv(process.env.ORGANIZER_SECRET) ||
+      sanitizeEnv(process.env.JWT_SECRET) ||
       'ideathon-2.0-secure-admin-session-secret-2026-prod',
   },
 
   // Authorized Organizers & Session Security (Backwards compatible alias)
   organizer: {
     emails: [
-      (process.env.ADMIN_EMAIL || process.env.ORGANIZER_EMAILS || 'ajayguptha710@gmail.com').trim().toLowerCase()
+      (sanitizeEnv(process.env.ADMIN_EMAIL) || sanitizeEnv(process.env.ORGANIZER_EMAILS) || 'ajayguptha710@gmail.com').toLowerCase(),
     ],
     jwtSecret:
-      process.env.ADMIN_SECRET ||
-      process.env.ORGANIZER_SECRET ||
-      process.env.JWT_SECRET ||
+      sanitizeEnv(process.env.ADMIN_SECRET) ||
+      sanitizeEnv(process.env.ORGANIZER_SECRET) ||
+      sanitizeEnv(process.env.JWT_SECRET) ||
       'ideathon-2.0-secure-admin-session-secret-2026-prod',
   },
 

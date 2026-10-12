@@ -31,12 +31,24 @@ import {
 
 const app = express();
 
+// Trust reverse proxy (Render, Vercel edge, cloud load balancers)
+app.set('trust proxy', 1);
+
 // ------------------------------------------------------------------------------
-// RATE LIMITING HELPERS
+// CLIENT IP AND RATE LIMITING HELPERS
 // ------------------------------------------------------------------------------
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded && typeof forwarded === 'string') {
+    const first = forwarded.split(',')[0].trim();
+    if (first) return first;
+  }
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
 const ipRequests = new Map();
 function rateLimiter(req, res, next) {
-  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const ip = getClientIp(req);
   const now = Date.now();
   const windowMs = config.rateLimit.windowMs;
   const max = config.rateLimit.max;
@@ -64,7 +76,7 @@ function rateLimiter(req, res, next) {
 // Strict rate limiter for Admin Login attempts (max 5 failed attempts per 15 minutes)
 const adminLoginAttempts = new Map();
 function adminLoginLimiter(req, res, next) {
-  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const ip = getClientIp(req);
   const now = Date.now();
   const windowMs = 15 * 60 * 1000;
   const max = 5;
@@ -168,7 +180,11 @@ function verifyAdminSessionToken(token) {
     .update(payloadB64)
     .digest('base64url');
 
-  if (signature !== expectedSig) return null;
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return null;
+  }
 
   try {
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8'));
@@ -189,23 +205,19 @@ function verifyAdminCredentials(email, password) {
     return false;
   }
 
-  // 1. Verify against BCrypt password hash
-  if (config.admin.passwordHash) {
-    try {
-      if (bcrypt.compareSync(password, config.admin.passwordHash)) {
-        return true;
-      }
-    } catch (e) {
-      console.warn('[Admin Auth Warning] BCrypt hash comparison failed:', e.message);
-    }
+  // Strictly verify against BCrypt password hash from environment
+  const hash = config.admin.passwordHash;
+  if (!hash) {
+    console.warn('[Admin Auth Warning] ADMIN_PASSWORD_HASH is not configured in server environment.');
+    return false;
   }
 
-  // 2. Direct fallback if plaintext password provided in .env
-  if (config.admin.password && password === config.admin.password) {
-    return true;
+  try {
+    return bcrypt.compareSync(password, hash);
+  } catch (e) {
+    console.warn('[Admin Auth Warning] BCrypt hash comparison failed:', e.message);
+    return false;
   }
-
-  return false;
 }
 
 // Middleware: Restrict access strictly to authorized administrator account
