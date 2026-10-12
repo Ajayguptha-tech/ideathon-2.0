@@ -18,6 +18,7 @@ import {
   updateEmailStatus,
   isDatabaseHosted,
   getDatabaseEngine,
+  getPgPool,
   clearAllTeams,
 } from './db.js';
 import { generateCsvString } from './storage.js';
@@ -88,22 +89,33 @@ function adminLoginLimiter(req, res, next) {
 
 // Middleware
 app.use(express.json({ limit: '100kb' }));
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      const isAllowed = config.allowedOrigins.some(
-        (allowed) => allowed === origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')
-      );
-      if (isAllowed) {
-        callback(null, true);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const isAllowed =
+      config.allowedOrigins.some((allowed) => allowed === origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      origin.endsWith('.vercel.app') ||
+      (config.frontendUrl && origin === config.frontendUrl);
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      if (config.nodeEnv === 'production') {
+        callback(new Error(`Access blocked by CORS policy: Origin "${origin}" not allowed.`));
       } else {
         callback(null, true); // Dev-friendly fallback
       }
-    },
-    credentials: true,
-  })
-);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
 
 // Serve public directory statically for public assets and downloads
 app.use(express.static(path.resolve(__dirname, '../public')));
@@ -241,13 +253,27 @@ const verifySessionToken = verifyAdminSessionToken;
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
-    const all = await getAllTeams();
+    let dbConnected = false;
+    const pool = getPgPool();
+    if (pool) {
+      try {
+        await pool.query('SELECT 1');
+        dbConnected = true;
+      } catch (poolErr) {
+        dbConnected = false;
+        console.error('[Health Check DB Error]', poolErr.message);
+      }
+    } else if (isDatabaseHosted()) {
+      dbConnected = true;
+    }
+
+    const all = await getAllTeams().catch(() => []);
     res.json({
       status: 'online',
       event: config.event.name,
       environment: config.nodeEnv,
       database: getDatabaseEngine(),
-      databaseConnected: isDatabaseHosted(),
+      databaseConnected: dbConnected,
       totalRegistrations: all.length,
       authorizedOrganizer: config.organizer.emails[0] || 'ajayguptha710@gmail.com',
       emailService: config.email.pass || config.email.brevoApiKey ? 'Configured' : 'Pending Config',
@@ -296,9 +322,12 @@ app.post('/api/register', rateLimiter, async (req, res) => {
     // 2. Storage & Database Transaction (Database is source of truth - saved first!)
     const saveResult = await saveTeamRegistration(validation.normalized);
     if (!saveResult.success) {
-      return res.status(409).json({
+      const isDbError = Boolean(saveResult.errors?.database);
+      return res.status(isDbError ? 500 : 409).json({
         success: false,
-        message: 'Registration conflict detected.',
+        message: isDbError
+          ? 'Database transaction failed. Registration was not recorded.'
+          : 'Registration conflict detected.',
         errors: saveResult.errors,
       });
     }
@@ -926,7 +955,7 @@ app.use((req, res) => {
 app.listen(config.port, () => {
   console.log(`====================================================`);
   console.log(` Ideathon 2.0 Backend Server running on port ${config.port}`);
-  console.log(` Database: ${isDatabaseHosted() ? 'Supabase PostgreSQL (Hosted)' : 'Local Atomic Ledger'}`);
+  console.log(` Database: ${getDatabaseEngine()}`);
   console.log(` Organizer Portal API: /api/organizer/*`);
   console.log(` Authorized Organizer: ${config.organizer.emails[0]}`);
   console.log(` Email Provider: ${config.email.pass || config.email.brevoApiKey ? 'Configured' : 'Pending configuration'}`);

@@ -31,11 +31,18 @@ if (databaseUrl) {
     pgPool = new Pool({
       connectionString: databaseUrl,
       ssl: isLocal ? false : { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
     });
 
     pgPool.query('SELECT NOW()', (err) => {
       if (err) {
         console.error('[PostgreSQL Error] Connection test failed:', err.message);
+        if (config.nodeEnv === 'production') {
+          console.error('[FATAL] Failed to connect to required PostgreSQL database in production mode. Halting process.');
+          process.exit(1);
+        }
       } else {
         console.log('[Database] Native PostgreSQL pool connected successfully.');
         initPostgresSchema(pgPool);
@@ -43,7 +50,14 @@ if (databaseUrl) {
     });
   } catch (err) {
     console.error('[PostgreSQL Error] Failed to create pool:', err.message);
+    if (config.nodeEnv === 'production') {
+      console.error('[FATAL] Failed to initialize PostgreSQL pool in production mode. Halting process.');
+      process.exit(1);
+    }
   }
+} else if (config.nodeEnv === 'production') {
+  console.error('[FATAL] DATABASE_URL is required in production mode. Refusing to start with local fallback. Halting process.');
+  process.exit(1);
 }
 
 // 2. Initialize Supabase if credentials are provided
@@ -85,7 +99,9 @@ export function isDatabaseHosted() {
 }
 
 export function getDatabaseEngine() {
-  if (pgPool) return 'PostgreSQL (Native Connection Pool)';
+  if (pgPool) {
+    return databaseUrl.includes('neon.tech') ? 'PostgreSQL (Neon Pooled)' : 'PostgreSQL (Native Connection Pool)';
+  }
   if (supabase) return 'PostgreSQL (Supabase Hosted)';
   return 'Local Atomic Ledger (Pending PostgreSQL configuration in .env)';
 }
@@ -157,7 +173,10 @@ export async function checkTeamDuplicates(normalizedData) {
 
       return { hasDuplicate: false, errors: {} };
     } catch (err) {
-      console.warn('[PostgreSQL] Duplicate check error, falling back:', err.message);
+      console.warn('[PostgreSQL] Duplicate check error:', err.message);
+      if (config.nodeEnv === 'production' || databaseUrl) {
+        throw new Error('PostgreSQL database query failed during duplicate check: ' + err.message);
+      }
     }
   }
 
@@ -228,7 +247,10 @@ export async function checkTeamDuplicates(normalizedData) {
     }
   }
 
-  // C. Local storage check fallback
+  // C. Local storage check fallback (only when no database configured)
+  if ((config.nodeEnv === 'production' || databaseUrl) && !supabase && !pgPool) {
+    throw new Error('PostgreSQL database is configured but unreachable. Local fallback disabled.');
+  }
   return checkLocalDuplicates(normalizedData);
 }
 
@@ -249,20 +271,17 @@ export async function saveTeamRegistration(normalizedData) {
       client = await pgPool.connect();
       await client.query('BEGIN');
 
-      // Sequential Team ID generation synchronized from PostgreSQL records
+      // Advisory transaction lock to strictly serialize sequential team ID generation under concurrent requests
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('team_registration_sequence'))");
+
+      // Sequential Team ID generation synchronized from PostgreSQL records (TEAM-001, TEAM-002, ...)
       const seqRes = await client.query(`
-        SELECT registration_id FROM teams 
-        WHERE registration_id ~ '^TEAM-[0-9]+$' 
-        ORDER BY created_at DESC LIMIT 1
+        SELECT MAX(CAST(SUBSTRING(registration_id FROM 6) AS INTEGER)) AS max_num 
+        FROM teams 
+        WHERE registration_id ~ '^TEAM-[0-9]+$'
       `);
-      let nextNum = 1;
-      if (seqRes.rows.length > 0) {
-        const lastId = seqRes.rows[0].registration_id;
-        const match = lastId.match(/TEAM-(\d+)/);
-        if (match) {
-          nextNum = parseInt(match[1], 10) + 1;
-        }
-      }
+      const maxNum = seqRes.rows[0]?.max_num ? parseInt(seqRes.rows[0].max_num, 10) : 0;
+      const nextNum = maxNum + 1;
       const teamId = formatTeamId(nextNum);
       const registrationId = teamId;
       const timestamp = new Date().toISOString();
@@ -316,13 +335,6 @@ export async function saveTeamRegistration(normalizedData) {
         emailSent: false,
       };
 
-      // Also persist to secondary local ledger for audit backup
-      try {
-        await saveLocalRegistration(normalizedData, teamId);
-      } catch (localErr) {
-        console.warn('[Storage] Secondary local save note:', localErr.message);
-      }
-
       return { success: true, record, hosted: true, engine: 'postgresql' };
     } catch (dbErr) {
       if (client) await client.query('ROLLBACK').catch(() => {});
@@ -332,7 +344,13 @@ export async function saveTeamRegistration(normalizedData) {
           errors: { duplicate: 'Team name, registration number, or email conflict detected in PostgreSQL.' },
         };
       }
-      console.error('[PostgreSQL Error] Transaction failed, falling back:', dbErr.message);
+      console.error('[PostgreSQL Error] Transaction failed:', dbErr.message);
+      if (config.nodeEnv === 'production' || databaseUrl) {
+        return {
+          success: false,
+          errors: { database: 'PostgreSQL database write failed: ' + dbErr.message },
+        };
+      }
     } finally {
       if (client) client.release();
     }
@@ -437,7 +455,13 @@ export async function saveTeamRegistration(normalizedData) {
     }
   }
 
-  // 3. Fallback save to local storage ledger (allocates sequential teamId)
+  // 3. Fallback save to local storage ledger (only when no database configured)
+  if (config.nodeEnv === 'production' || databaseUrl) {
+    return {
+      success: false,
+      errors: { database: 'PostgreSQL database write failed and local fallback is disabled in production.' },
+    };
+  }
   const localRes = await saveLocalRegistration(normalizedData);
   return { ...localRes, hosted: false };
 }
@@ -564,7 +588,10 @@ export async function getAllTeams() {
         });
       }
     } catch (err) {
-      console.warn('[PostgreSQL] Failed to fetch teams, falling back:', err.message);
+      console.warn('[PostgreSQL] Failed to fetch teams:', err.message);
+      if (config.nodeEnv === 'production' || databaseUrl) {
+        throw new Error('PostgreSQL database query failed: ' + err.message);
+      }
     }
   }
 
@@ -636,10 +663,16 @@ export async function getAllTeams() {
       }
     } catch (err) {
       console.warn('[Database] Failed to fetch teams from Supabase, falling back:', err.message);
+      if (config.nodeEnv === 'production' || databaseUrl) {
+        throw new Error('Supabase database query failed: ' + err.message);
+      }
     }
   }
 
-  // C. Fallback to local
+  // C. Fallback to local (only when no database configured)
+  if ((config.nodeEnv === 'production' || databaseUrl) && !supabase && !pgPool) {
+    throw new Error('PostgreSQL database is configured but unreachable. Local fallback disabled.');
+  }
   return getLocalRegistrations();
 }
 
@@ -656,6 +689,32 @@ export async function getTeamById(idOrRegId) {
         t.id === idOrRegId
     ) || null
   );
+}
+
+/**
+ * Delete a single test team registration from PostgreSQL (for clean automated test cleanup)
+ */
+export async function deleteTeamRegistration(registrationId) {
+  if (pgPool) {
+    const client = await pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      const teamRes = await client.query('SELECT id FROM teams WHERE registration_id = $1', [registrationId]);
+      if (teamRes.rows.length > 0) {
+        const teamId = teamRes.rows[0].id;
+        await client.query('DELETE FROM team_members WHERE team_id = $1', [teamId]);
+        await client.query('DELETE FROM teams WHERE id = $1', [teamId]);
+      }
+      await client.query('COMMIT');
+      return true;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+  return false;
 }
 
 /**

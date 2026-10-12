@@ -20,6 +20,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { eventConfig as c } from '../config/eventConfig';
+import { getApiUrl } from '../config/apiConfig';
 
 export interface MemberData {
   name: string;
@@ -254,21 +255,28 @@ export default function TeamRegistration() {
         honeypot: formData.honeypot,
       };
 
-      const res = await fetch('/api/register', {
+      const res = await fetch(getApiUrl('/api/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.warn('Failed to parse server response as JSON:', parseErr);
+      }
 
       if (!res.ok) {
-        if (data.errors) {
+        if (data && data.errors) {
           const firstErr = Object.values(data.errors)[0] as string;
           setApiError(firstErr || data.message || 'Registration failed.');
           setErrors(data.errors);
+        } else if (data && data.message) {
+          setApiError(data.message);
         } else {
-          setApiError(data.message || 'Registration failed.');
+          setApiError(`Server error (${res.status}). Please check your connection and try again.`);
         }
         setSubmitting(false);
         return;
@@ -286,7 +294,12 @@ export default function TeamRegistration() {
       });
     } catch (err: unknown) {
       console.error('Submission network error:', err);
-      setApiError('Unable to connect to registration server. Please check your network and try again.');
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      setApiError(
+        isOffline
+          ? 'You appear to be offline. Please check your internet connection.'
+          : 'Unable to connect to registration server. Please check your network and try again.'
+      );
     } finally {
       setSubmitting(false);
     }

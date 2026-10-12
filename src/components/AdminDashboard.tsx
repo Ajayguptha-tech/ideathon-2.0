@@ -27,6 +27,7 @@ import {
   ChevronDown,
   Users,
 } from 'lucide-react';
+import { getApiUrl } from '../config/apiConfig';
 
 interface DropdownOption {
   value: string;
@@ -253,7 +254,7 @@ export default function AdminDashboard() {
     setFetchError(null);
     try {
       // 1. Fetch Teams
-      const resTeams = await fetch('/api/admin/teams?limit=-1', {
+      const resTeams = await fetch(getApiUrl('/api/admin/teams?limit=-1'), {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -271,7 +272,7 @@ export default function AdminDashboard() {
       setTeams(teamsData.teams || []);
 
       // 2. Fetch Stats
-      const resStats = await fetch('/api/admin/stats', {
+      const resStats = await fetch(getApiUrl('/api/admin/stats'), {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -304,7 +305,7 @@ export default function AdminDashboard() {
 
     setAuthLoading(true);
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch(getApiUrl('/api/admin/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -358,7 +359,7 @@ export default function AdminDashboard() {
     if (!token) return;
     setExportingExcel(true);
     try {
-      const res = await fetch('/api/admin/export-excel', {
+      const res = await fetch(getApiUrl('/api/admin/export-excel'), {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -387,7 +388,7 @@ export default function AdminDashboard() {
     if (!token) return;
     setExportingCsv(true);
     try {
-      const res = await fetch('/api/admin/export-csv', {
+      const res = await fetch(getApiUrl('/api/admin/export-csv'), {
         headers: { Authorization: `Bearer ${token}` },
       });
 

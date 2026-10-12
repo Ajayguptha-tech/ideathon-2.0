@@ -77,28 +77,42 @@ CREATE INDEX IF NOT EXISTS idx_organizer_otps_lookup ON organizer_otps (email, c
 -- ------------------------------------------------------------------------------
 -- 4. ROW LEVEL SECURITY (RLS) POLICIES
 -- ------------------------------------------------------------------------------
--- Enable RLS to prevent unauthorized direct client access via Supabase public key
-ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
-ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE organizer_otps ENABLE ROW LEVEL SECURITY;
+-- Enable RLS and configure policies when supported roles exist (e.g., Supabase)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+        ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE organizer_otps ENABLE ROW LEVEL SECURITY;
 
--- Allow service_role key full administrative access
-CREATE POLICY "Service role full access on teams" ON teams
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+        IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Service role full access on teams') THEN
+            CREATE POLICY "Service role full access on teams" ON teams
+                FOR ALL TO service_role USING (true) WITH CHECK (true);
+        END IF;
 
-CREATE POLICY "Service role full access on team_members" ON team_members
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+        IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Service role full access on team_members') THEN
+            CREATE POLICY "Service role full access on team_members" ON team_members
+                FOR ALL TO service_role USING (true) WITH CHECK (true);
+        END IF;
 
-CREATE POLICY "Service role full access on organizer_otps" ON organizer_otps
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+        IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Service role full access on organizer_otps') THEN
+            CREATE POLICY "Service role full access on organizer_otps" ON organizer_otps
+                FOR ALL TO service_role USING (true) WITH CHECK (true);
+        END IF;
+    END IF;
 
--- Explicitly revoke public (anon) read/write access to protect student PII
--- (Public registration submissions must always go through the validated Express API)
-CREATE POLICY "Deny anon access to teams" ON teams
-    FOR SELECT TO anon USING (false);
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Deny anon access to teams') THEN
+            CREATE POLICY "Deny anon access to teams" ON teams
+                FOR SELECT TO anon USING (false);
+        END IF;
 
-CREATE POLICY "Deny anon access to team_members" ON team_members
-    FOR SELECT TO anon USING (false);
+        IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Deny anon access to team_members') THEN
+            CREATE POLICY "Deny anon access to team_members" ON team_members
+                FOR SELECT TO anon USING (false);
+        END IF;
+    END IF;
+END $$;
 
 -- ------------------------------------------------------------------------------
 -- 5. AUTO-UPDATE TIMESTAMP TRIGGER
