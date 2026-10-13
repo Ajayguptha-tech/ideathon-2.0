@@ -698,8 +698,9 @@ export function FAQ() {
 export function Footer() {
   return (
     <footer className="border-t border-cyan-400/20 px-4 py-8">
-      <div className="mx-auto max-w-6xl text-center text-xs text-slate-400">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 text-center text-xs text-slate-400 sm:flex-row sm:text-left">
         <p>© 2026 Young Innovators Club. Ideathon 2.0. All rights reserved.</p>
+        <p className="font-medium tracking-wide text-slate-400/90">Department of CSE</p>
       </div>
     </footer>
   );

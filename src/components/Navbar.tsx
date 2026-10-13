@@ -37,41 +37,55 @@ export default function Navbar() {
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400/20 text-cyan-300 transition group-hover:bg-cyan-400/30">
             <Sparkles size={16} />
           </span>
-          <div>
-            <span>{c.club}</span>
-            <br />
-            <span className="text-[11px] font-normal tracking-wider text-cyan-300">IDEATHON 2.0</span>
-          </div>
+          <span>{c.club}</span>
         </a>
 
-        {/* Desktop Links */}
-        <ul className="hidden items-center gap-6 lg:flex">
-          {navItems.map((item) => (
-            <li key={item.label}>
-              <a
-                className="text-sm font-medium text-slate-300 transition hover:text-cyan-300"
-                href={item.href}
-              >
-                {item.label}
+        {/* Desktop Links & Right Branding */}
+        <div className="hidden items-center gap-4 xl:gap-6 lg:flex">
+          <ul className="flex items-center gap-3.5 xl:gap-5">
+            {navItems.map((item) => (
+              <li key={item.label}>
+                <a
+                  className="text-sm font-medium text-slate-300 transition hover:text-cyan-300"
+                  href={item.href}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
+            <li>
+              <a href="#register" className="btn-p !py-2 text-sm whitespace-nowrap">
+                Register Team
               </a>
             </li>
-          ))}
-          <li>
-            <a href="#register" className="btn-p !py-2 text-sm">
-              Register Team
-            </a>
-          </li>
-        </ul>
+          </ul>
 
-        {/* Mobile Menu Toggle */}
-        <button
-          className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
-          aria-label="Toggle menu"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {open ? <X size={22} /> : <Menu size={22} />}
-        </button>
+          {/* Official Vignan Logo (Extreme Right Desktop) */}
+          <div className="flex items-center pl-1">
+            <img
+              src="/vignan-logo.jpg"
+              alt="Vignan's Foundation for Science, Technology & Research"
+              className="h-9 w-auto max-w-[140px] rounded bg-white p-0.5 shadow-sm object-contain"
+            />
+          </div>
+        </div>
+
+        {/* Mobile Right Container (Logo + Menu Toggle) */}
+        <div className="flex items-center gap-2.5 lg:hidden">
+          <img
+            src="/vignan-logo.jpg"
+            alt="Vignan's"
+            className="h-7 sm:h-8 w-auto max-w-[110px] rounded bg-white p-0.5 shadow-sm object-contain"
+          />
+          <button
+            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white"
+            aria-label="Toggle menu"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </nav>
 
       {/* Mobile Drawer */}
