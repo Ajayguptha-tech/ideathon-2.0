@@ -38,8 +38,8 @@ export const eventConfig = {
     },
     {
       date: '21 or 22 October 2026 (Tentative)',
-      title: 'Tentative Results Announcement',
-      text: 'Round 2 results will be announced tentatively on 21 or 22 October 2026. The confirmed announcement date will be communicated by the organizers.',
+      title: 'Round 1 Results Announcement (Tentative)',
+      text: 'Round 1 results will be announced tentatively on 21 or 22 October 2026. The selected teams qualifying for the final round will be announced here. The confirmed announcement date will be communicated by the organizers.',
     },
     {
       date: '24 October 2026',
@@ -49,7 +49,7 @@ export const eventConfig = {
   ],
   announcements: [
     { title: 'Abstract Submission', status: 'Opens 13 October 2026' },
-    { title: 'Round 2 Results', status: 'Scheduled for 22 October 2026' },
+    { title: 'Round 1 Results', status: 'Scheduled for 21 or 22 October 2026 (Tentative)' },
     { title: 'Final-Round Venue', status: TBA },
     { title: 'Event-Day Updates', status: TBA },
     { title: 'Final Results', status: TBA },

@@ -367,7 +367,7 @@ export function AbstractAndPresentationTemplates() {
               <div className="flex items-start gap-2">
                 <Calendar size={15} className="mt-0.5 shrink-0 text-violet-300" />
                 <span>
-                  <b className="text-white">Round 1 Results:</b> Announced on <span className="text-cyan-300">22 October 2026</span>. Qualifying teams will be published on this portal.
+                  <b className="text-white">Round 1 Results:</b> Announced tentatively on <span className="text-cyan-300">21 or 22 October 2026</span>. Qualifying teams will be published on this portal.
                 </span>
               </div>
               <div className="flex items-start gap-2">
@@ -521,7 +521,7 @@ export function Announcements() {
       {/* Qualifying Teams */}
       <div className="glass mt-6 p-6">
         <h4 className="font-bold text-white">Qualifying Teams (Round 2)</h4>
-        <p className="text-xs text-slate-400">Scheduled announcement on 22 October 2026.</p>
+        <p className="text-xs text-slate-400">Scheduled announcement tentatively on 21 or 22 October 2026.</p>
         <div className="mt-3">
           {c.qualifyingTeams.length > 0 ? (
             <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-200">
@@ -659,8 +659,8 @@ const faqs: [string, string][] = [
   ['How many rounds are there?', 'Two: Abstract Submission (13–19 October) and the Final Presentation (24 October).'],
   ['What is required for the final round?', 'A working basic implementation, final presentation using the official presentation template, and participation in rapid-fire questions.'],
   ['Is a basic implementation mandatory?', 'Yes, for all final-round teams.'],
-  ['When will the presentation template be released?', 'The official presentation template will be released after Round 1 results on 22 October 2026 for all qualified teams.'],
-  ['When will Round 2 results be announced?', 'On 22 October 2026.'],
+  ['When will the presentation template be released?', 'The official presentation template will be released after Round 1 results (tentatively 21 or 22 October 2026) for all qualified teams.'],
+  ['When will Round 1 results be announced?', 'Tentatively on 21 or 22 October 2026. The confirmed announcement date will be communicated by the organizers.'],
   ['Will participants receive certificates?', 'Winners receive certificates; the remaining participants receive e-certificates.'],
   ['Where will the venue be announced?', 'The final-round venue will be announced in the Announcements section of this website.'],
 ];
