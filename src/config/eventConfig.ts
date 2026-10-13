@@ -20,11 +20,12 @@ export const eventConfig = {
     { name: 'SK. Reshma', contact: '98853 66384', tel: '9885366384', department: 'Department of CSE' },
   ],
   prizes: [
-    { label: 'First Prize', amount: '₹4,000' },
-    { label: 'Second Prize', amount: '₹3,000' },
-    { label: 'Third Prize', amount: '₹2,000' },
-    { label: 'Three Consolation Prizes', amount: '₹1,000 each' },
+    { label: 'First Prize', amount: '₹3,000' },
+    { label: 'Second Prize', amount: '₹2,000' },
+    { label: 'Third Prize', amount: '₹1,000' },
+    { label: 'Five Consolation Prizes', amount: '₹500 each' },
   ],
+  totalPrizePool: '₹8,500',
   timeline: [
     {
       date: '13 October 2026',

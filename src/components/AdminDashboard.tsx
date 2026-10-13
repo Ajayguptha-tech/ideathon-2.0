@@ -26,6 +26,7 @@ import {
   Check,
   ChevronDown,
   Users,
+  Trash2,
 } from 'lucide-react';
 import { getApiUrl } from '../config/apiConfig';
 
@@ -237,6 +238,14 @@ export default function AdminDashboard() {
   // Selected team for inspection modal
   const [selectedTeam, setSelectedTeam] = useState<TeamRecord | null>(null);
 
+  // Deletion modal and processing state
+  const [teamToDelete, setTeamToDelete] = useState<TeamRecord | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteNotification, setDeleteNotification] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
   // Export loading state
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
@@ -412,9 +421,65 @@ export default function AdminDashboard() {
     }
   };
 
+  // Secure team deletion handler (authenticated, confirmed, transactional)
+  const handleConfirmDeleteTeam = async () => {
+    if (!teamToDelete || !token || isDeleting) return;
 
+    setIsDeleting(true);
+    setDeleteNotification(null);
 
-  // Reset all filters
+    const targetId = teamToDelete.registrationId || teamToDelete.teamId || '';
+    const targetName = teamToDelete.teamName;
+
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/teams/${encodeURIComponent(targetId)}`), {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        handleLogout();
+        setAuthError('Administrator session expired. Please sign in again.');
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to delete team record.');
+      }
+
+      // Close deletion dialog
+      setTeamToDelete(null);
+
+      // Close detail inspection modal if this team was open
+      if (
+        selectedTeam &&
+        (selectedTeam.registrationId === targetId || selectedTeam.teamId === targetId)
+      ) {
+        setSelectedTeam(null);
+      }
+
+      // Display clear success message
+      setDeleteNotification({
+        type: 'success',
+        text: `Team "${targetName}" (${targetId}) was successfully deleted.`,
+      });
+
+      // Refresh dashboard data, statistics, and filters
+      await loadDashboardData();
+    } catch (err: unknown) {
+      setDeleteNotification({
+        type: 'error',
+        text: (err as Error).message || 'Failed to delete team. Please try again.',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleResetFilters = () => {
     setSearchQuery('');
     setDeptFilter('ALL');
@@ -703,6 +768,34 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Deletion feedback alert */}
+            {deleteNotification && (
+              <div
+                className={`flex items-center justify-between rounded-xl border p-4 text-xs font-semibold ${
+                  deleteNotification.type === 'success'
+                    ? 'border-emerald-500/40 bg-emerald-950/40 text-emerald-200'
+                    : 'border-rose-500/40 bg-rose-950/40 text-rose-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {deleteNotification.type === 'success' ? (
+                    <Check size={16} className="shrink-0 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle size={16} className="shrink-0 text-rose-400" />
+                  )}
+                  <span>{deleteNotification.text}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteNotification(null)}
+                  className="rounded p-1 hover:bg-white/10"
+                  title="Dismiss notification"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {/* ================= STATISTICS METRIC CARDS ================= */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Total Teams */}
@@ -966,12 +1059,24 @@ export default function AdminDashboard() {
                               : 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => setSelectedTeam(team)}
-                              className="rounded bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-cyan-500/20 hover:text-cyan-300"
-                            >
-                              View Details
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedTeam(team)}
+                                className="rounded bg-white/10 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-cyan-500/20 hover:text-cyan-300"
+                              >
+                                View Details
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTeamToDelete(team)}
+                                className="flex items-center gap-1 rounded border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:border-rose-400 hover:bg-rose-500/20"
+                                title={`Delete team ${team.teamName}`}
+                              >
+                                <Trash2 size={12} />
+                                <span>Delete</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1124,12 +1229,124 @@ export default function AdminDashboard() {
               </div>
 
               {/* Modal Footer */}
-              <div className="mt-6 flex items-center justify-end border-t border-white/10 pt-4">
+              <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
                 <button
+                  type="button"
+                  onClick={() => setTeamToDelete(selectedTeam)}
+                  className="flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold text-rose-300 transition hover:border-rose-400 hover:bg-rose-500/20"
+                >
+                  <Trash2 size={13} />
+                  <span>Delete Team</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setSelectedTeam(null)}
                   className="rounded-lg border border-white/10 bg-white/5 px-5 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
                 >
                   Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= TEAM DELETION CONFIRMATION DIALOG ================= */}
+      <AnimatePresence>
+        {teamToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass w-full max-w-lg border border-rose-500/50 p-6 shadow-[0_0_50px_rgba(244,63,94,0.25)]"
+            >
+              {/* Modal Header */}
+              <div className="flex items-start gap-3 border-b border-white/10 pb-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-500/20 text-rose-400">
+                  <AlertTriangle size={22} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white">Confirm Team Deletion</h3>
+                  <p className="mt-1 text-xs text-slate-300">
+                    This action will permanently delete this team and its associated records from the database and exported files.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setTeamToDelete(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-50"
+                  title="Cancel deletion"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Team Record Identity Details */}
+              <div className="my-5 rounded-xl border border-rose-500/30 bg-rose-950/20 p-4">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-rose-400">
+                  Team to be Deleted
+                </div>
+                <div className="mt-2 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Registration ID:</span>
+                    <span className="font-mono font-bold text-cyan-300">
+                      {teamToDelete.teamId || teamToDelete.registrationId}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Team Name:</span>
+                    <span className="font-bold text-white">{teamToDelete.teamName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Team Size:</span>
+                    <span className="text-slate-200">
+                      {teamToDelete.teamSize || (teamToDelete.members?.length || 0) + 1} Members
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Team Leader:</span>
+                    <span className="text-slate-200">
+                      {teamToDelete.lead?.name || 'N/A'} ({teamToDelete.lead?.regNo || 'N/A'})
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-white/5 p-3 text-[11px] text-slate-300">
+                <p>
+                  <b className="text-rose-400">Warning:</b> Please confirm that this is a demo or invalid team before proceeding. Authentic team records should not be deleted.
+                </p>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/10 pt-4">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setTeamToDelete(null)}
+                  className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDeleteTeam}
+                  className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-5 py-2 text-xs font-bold text-white shadow-[0_0_20px_rgba(244,63,94,0.4)] transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>Deleting Team...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={14} />
+                      <span>Permanently Delete Team</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

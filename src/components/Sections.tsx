@@ -485,6 +485,9 @@ export function Prizes() {
         <span className="text-xs font-bold uppercase tracking-wider text-violet-300">Consolation</span>
         <h4 className="mt-1 text-lg font-bold text-white">{pc.label}</h4>
         <p className="text-2xl font-extrabold text-cyan-300">{pc.amount}</p>
+        <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-slate-300">
+          Total Prize Pool: <span className="font-bold text-amber-300">{c.totalPrizePool || '₹8,500'}</span>
+        </p>
       </div>
 
       {/* Certificates Notice */}

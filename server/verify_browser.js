@@ -98,7 +98,7 @@ async function verifySite() {
         hasAbstractTemplate: document.body.innerText.includes('Abstract Submission Template'),
         hasPresentationNotice: document.body.innerText.includes('Presentation Template'),
         hasNoPoster: !document.body.innerText.includes('Physical A3-Size Poster'),
-        hasPrizes: document.body.innerText.includes('₹4,000'),
+        hasPrizes: document.body.innerText.includes('₹3,000'),
         hasRegistrationForm: !!document.querySelector('#register'),
         hasFooterCredits: document.body.innerText.includes('Ajay Guptha and Sriram'),
         totalSections: document.querySelectorAll('section').length

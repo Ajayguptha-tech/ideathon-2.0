@@ -14,6 +14,7 @@ import {
   allocateNextTeamId,
   formatTeamId,
   clearAllRegistrations as clearLocalRegistrations,
+  deleteRegistration as deleteLocalRegistration,
 } from './storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -34,6 +35,10 @@ if (databaseUrl) {
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
+    });
+
+    pgPool.on('error', (err) => {
+      console.warn('[PostgreSQL Pool Note] Idle client connection closed or reset:', err.message);
     });
 
     pgPool.query('SELECT NOW()', (err) => {
@@ -692,29 +697,121 @@ export async function getTeamById(idOrRegId) {
 }
 
 /**
- * Delete a single test team registration from PostgreSQL (for clean automated test cleanup)
+ * Delete a single team registration securely and transactionally
+ * (Cascades dependent team_members safely and preserves sequence counters)
  */
 export async function deleteTeamRegistration(registrationId) {
+  if (!registrationId || typeof registrationId !== 'string' || !registrationId.trim()) {
+    return { success: false, invalidId: true };
+  }
+  const cleanId = registrationId.trim();
+
+  // A. Direct PostgreSQL Pool (Atomic Transaction)
   if (pgPool) {
     const client = await pgPool.connect();
     try {
       await client.query('BEGIN');
-      const teamRes = await client.query('SELECT id FROM teams WHERE registration_id = $1', [registrationId]);
-      if (teamRes.rows.length > 0) {
-        const teamId = teamRes.rows[0].id;
-        await client.query('DELETE FROM team_members WHERE team_id = $1', [teamId]);
-        await client.query('DELETE FROM teams WHERE id = $1', [teamId]);
+      const teamRes = await client.query(
+        'SELECT id, team_name, registration_id FROM teams WHERE registration_id = $1 OR id::text = $1',
+        [cleanId]
+      );
+
+      if (teamRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        // Check if record exists in local ledger fallback
+        const localDeleted = deleteLocalRegistration(cleanId);
+        if (localDeleted > 0) {
+          return {
+            success: true,
+            deleted: true,
+            teamName: cleanId,
+            registrationId: cleanId,
+          };
+        }
+        return { success: false, notFound: true };
       }
+
+      const team = teamRes.rows[0];
+      const teamId = team.id;
+      const teamName = team.team_name;
+      const regId = team.registration_id;
+
+      // 1. Delete associated team members first
+      await client.query('DELETE FROM team_members WHERE team_id = $1', [teamId]);
+      // 2. Delete team record
+      await client.query('DELETE FROM teams WHERE id = $1', [teamId]);
+      // 3. Commit transaction
       await client.query('COMMIT');
-      return true;
+
+      // 4. Synchronize local storage/CSV ledger if present without resetting sequence baseline
+      try {
+        deleteLocalRegistration(regId || cleanId);
+      } catch {
+        /* non-fatal local sync */
+      }
+
+      console.log(`[Database] Safely deleted team "${teamName}" (${regId || cleanId}) and associated members.`);
+      return {
+        success: true,
+        deleted: true,
+        teamName,
+        registrationId: regId || cleanId,
+      };
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
+      console.error('[Database Deletion Error]', err.message);
       throw err;
     } finally {
       client.release();
     }
   }
-  return false;
+
+  // B. Supabase REST Client
+  if (supabase) {
+    try {
+      const { data: teamData, error: findErr } = await supabase
+        .from('teams')
+        .select('id, team_name, registration_id')
+        .or(`registration_id.eq.${cleanId},id.eq.${cleanId}`)
+        .limit(1);
+
+      if (findErr || !teamData || teamData.length === 0) {
+        const localDeleted = deleteLocalRegistration(cleanId);
+        if (localDeleted > 0) {
+          return { success: true, deleted: true, teamName: cleanId, registrationId: cleanId };
+        }
+        return { success: false, notFound: true };
+      }
+
+      const team = teamData[0];
+      await supabase.from('team_members').delete().eq('team_id', team.id);
+      await supabase.from('teams').delete().eq('id', team.id);
+      deleteLocalRegistration(team.registration_id || cleanId);
+
+      return {
+        success: true,
+        deleted: true,
+        teamName: team.team_name,
+        registrationId: team.registration_id || cleanId,
+      };
+    } catch (err) {
+      console.error('[Supabase Deletion Error]', err.message);
+      throw err;
+    }
+  }
+
+  // C. Local storage fallback
+  const target = await getTeamById(cleanId);
+  if (!target) {
+    return { success: false, notFound: true };
+  }
+  const count = deleteLocalRegistration(cleanId);
+  return {
+    success: count > 0,
+    deleted: count > 0,
+    teamName: target.teamName,
+    registrationId: target.registrationId,
+  };
 }
 
 /**

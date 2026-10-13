@@ -20,6 +20,7 @@ import {
   getDatabaseEngine,
   getPgPool,
   clearAllTeams,
+  deleteTeamRegistration,
 } from './db.js';
 import { generateCsvString } from './storage.js';
 import { syncToGoogleSheet } from './googleSheets.js';
@@ -686,6 +687,61 @@ app.get(['/api/admin/teams/:registrationId', '/api/organizer/teams/:registration
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// 6b. Delete Single Team (Protected, atomic transaction, retains sequence baseline)
+app.delete(
+  ['/api/admin/teams/:registrationId', '/api/organizer/teams/:registrationId'],
+  requireAdminAuth,
+  async (req, res) => {
+    try {
+      const { registrationId } = req.params;
+      if (!registrationId || typeof registrationId !== 'string' || !registrationId.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or missing team registration ID.',
+        });
+      }
+
+      const result = await deleteTeamRegistration(registrationId.trim());
+
+      if (result.notFound) {
+        return res.status(404).json({
+          success: false,
+          message: `Team with registration ID "${registrationId}" was not found.`,
+        });
+      }
+
+      if (result.invalidId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid team registration ID format.',
+        });
+      }
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to delete team record.',
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: `Team "${result.teamName || registrationId}" (${result.registrationId || registrationId}) deleted successfully.`,
+        deletedTeam: {
+          registrationId: result.registrationId || registrationId,
+          teamName: result.teamName,
+        },
+      });
+    } catch (err) {
+      console.error('[Delete Team Error]', err.message);
+      return res.status(500).json({
+        success: false,
+        message: 'An internal error occurred while deleting the team record.',
+      });
+    }
+  }
+);
 
 // 7. Export to Excel (.xlsx) (Professional dual-worksheet format for college organizers)
 app.get(['/api/admin/export-excel', '/api/organizer/export-excel'], requireAdminAuth, async (req, res) => {
