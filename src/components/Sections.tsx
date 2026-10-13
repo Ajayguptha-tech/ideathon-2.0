@@ -336,13 +336,15 @@ export function AbstractAndPresentationTemplates() {
             >
               <Download size={15} /> Download Abstract Template
             </a>
-            <div
-              className="flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-semibold text-slate-400 select-none cursor-not-allowed"
-              title="The official submission link will be activated during the submission window."
+            <a
+              href="https://forms.gle/UJopAAZqjeksN9Pq9"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-semibold text-slate-200 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
             >
               <Clock size={14} className="text-amber-400" />
-              <span>Abstract Submission Form — Coming Soon</span>
-            </div>
+              <span>Submit Abstract</span>
+            </a>
           </div>
         </div>
 
