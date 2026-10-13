@@ -26,10 +26,26 @@ export const eventConfig = {
     { label: 'Three Consolation Prizes', amount: '₹1,000 each' },
   ],
   timeline: [
-    { date: '13 October', title: 'Abstract Submission Opens', text: 'The official Google Form will be circulated. Teams can submit abstracts through the form.' },
-    { date: '19 October', title: 'Abstract Submission Closes', text: 'Final deadline for submitting abstracts.' },
-    { date: '22 October', title: 'Round 2 Results', text: 'Organizers announce the teams selected for the final round. Qualifying teams will be published here.' },
-    { date: '24 October', title: 'Final Round and Prize Declaration', text: 'Final presentations to judges using the official template, working basic prototype demonstration, rapid-fire questions, and prize declaration.' },
+    {
+      date: '13 October 2026',
+      title: 'Abstract Submission Opens',
+      text: 'The abstract submission process begins. The Word document submission link will be made available on this date.',
+    },
+    {
+      date: '19 October 2026',
+      title: 'Abstract Submission Closes',
+      text: 'Final deadline for submitting abstracts. The Google Form submission link will be closed after the deadline.',
+    },
+    {
+      date: '21 or 22 October 2026 (Tentative)',
+      title: 'Tentative Results Announcement',
+      text: 'Round 2 results will be announced tentatively on 21 or 22 October 2026. The confirmed announcement date will be communicated by the organizers.',
+    },
+    {
+      date: '24 October 2026',
+      title: 'Final Round and Prize Declaration',
+      text: 'Final round in the morning, followed by the final results and prize declaration in the evening.',
+    },
   ],
   announcements: [
     { title: 'Abstract Submission', status: 'Opens 13 October 2026' },

@@ -130,7 +130,7 @@ export function Timeline() {
             <div className="glass p-5">
               <p className="flex items-center gap-2 font-bold text-cyan-300">
                 <Calendar size={16} />
-                {t.date} 2026
+                {t.date.includes('2026') ? t.date : `${t.date} 2026`}
               </p>
               <h3 className="mt-1 text-xl font-bold text-white">{t.title}</h3>
               <p className="mt-1 text-slate-300">{t.text}</p>
